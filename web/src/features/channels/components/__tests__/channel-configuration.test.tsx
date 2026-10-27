@@ -53,6 +53,47 @@ import { ChannelsProvider } from '../channels-provider'
 import { ChannelMutateDrawer } from '../drawers/channel-mutate-drawer'
 
 const originalAuth = useAuthStore.getState().auth
+
+test('request content recording defaults off and persists when enabled', async () => {
+  const user = userEvent.setup()
+  const put = vi.spyOn(api, 'put').mockImplementation(async (_url, payload) => {
+    editingChannel = { ...editingChannel, ...(payload as Partial<Channel>) }
+    return { data: { success: true } }
+  })
+  render(<ConfigurationHarness currentRow={editingChannel} />)
+  await screen.findByDisplayValue('Existing channel')
+  await user.click(screen.getByRole('tab', { name: /Request & Response/ }))
+  const toggle = within(
+    screen.getByRole('group', { name: 'Request processing' })
+  ).getByRole('switch', { name: 'Record Request Content' })
+  expect(toggle).not.toBeChecked()
+  await user.click(toggle)
+  expect(toggle).toBeChecked()
+  await user.click(screen.getByRole('button', { name: 'Update Channel' }))
+  await waitFor(() => expect(put).toHaveBeenCalled())
+  const payload = put.mock.calls[0]?.[1] as { setting: string }
+  expect(JSON.parse(payload.setting).record_request_body).toBe(true)
+  await waitFor(() =>
+    expect(
+      screen.queryByRole('button', { name: 'Update Channel' })
+    ).not.toBeInTheDocument()
+  )
+  await user.click(screen.getByRole('button', { name: 'Open channel' }))
+  await screen.findByDisplayValue('Existing channel')
+  expect(
+    within(screen.getByRole('group', { name: 'Quick options' })).getByRole(
+      'switch',
+      { name: 'Record Request Content' }
+    )
+  ).toBeChecked()
+  await user.click(screen.getByRole('tab', { name: /Request & Response/ }))
+  expect(
+    within(screen.getByRole('group', { name: 'Request processing' })).getByRole(
+      'switch',
+      { name: 'Record Request Content' }
+    )
+  ).toBeChecked()
+})
 let client: QueryClient
 let editingChannel: Channel
 let pluginOptions: TaskPluginOption[]
@@ -1333,7 +1374,7 @@ test('quick options show only applicable shortcuts when the provider changes', a
   render(<ConfigurationHarness />)
   await user.click(screen.getByRole('option', { name: 'OpenAI Built-in #1' }))
   let quick = within(screen.getByRole('group', { name: 'Quick options' }))
-  expect(quick.getAllByRole('switch')).toHaveLength(5)
+  expect(quick.getAllByRole('switch')).toHaveLength(6)
   expect(
     quick.queryByRole('switch', { name: 'Force Format' })
   ).not.toBeInTheDocument()
@@ -1351,7 +1392,7 @@ test('quick options show only applicable shortcuts when the provider changes', a
   await user.click(screen.getByRole('button', { name: 'Change provider' }))
   await user.click(screen.getByRole('option', { name: /^DeepSeek / }))
   quick = within(screen.getByRole('group', { name: 'Quick options' }))
-  expect(quick.getAllByRole('switch')).toHaveLength(4)
+  expect(quick.getAllByRole('switch')).toHaveLength(5)
   expect(
     quick.queryByRole('switch', { name: 'Responses WebSocket' })
   ).not.toBeInTheDocument()
@@ -2769,7 +2810,7 @@ test('on wide screens the quick options move into the header as a compact toggle
   await screen.findByDisplayValue('Existing channel')
   const quick = screen.getByRole('group', { name: 'Quick options' })
   expect(quick.closest('[data-slot="sheet-header"]')).not.toBeNull()
-  expect(within(quick).getAllByRole('switch')).toHaveLength(5)
+  expect(within(quick).getAllByRole('switch')).toHaveLength(6)
   // Second header row: status badge and description on the left, toggles right.
   const statusRow = quick.parentElement
   if (!statusRow) throw new Error('status row missing')

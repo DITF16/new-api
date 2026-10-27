@@ -37,8 +37,39 @@ import {
 import type { UsageLog } from '../../data/schema'
 import type { LogOtherData } from '../../types'
 import { useCommonLogsColumns } from '../columns/common-logs-columns'
+import { DetailsDialog } from '../dialogs/details-dialog'
 
 vi.mock('@lobehub/icons', () => ({}))
+
+test.each([true, false])(
+  'request content is visible only to administrators (admin=%s)',
+  (isAdmin) => {
+    const body = '{"messages":[{"content":"排错 <script>alert(1)</script>"}]}'
+    render(
+      <QueryClientProvider client={client}>
+        <I18nextProvider i18n={i18n}>
+          <DetailsDialog
+            log={makeLog({
+              admin_info: { request_body: body, request_body_truncated: true },
+            })}
+            isAdmin={isAdmin}
+            isRoot={false}
+            open
+            onOpenChange={() => {}}
+          />
+        </I18nextProvider>
+      </QueryClientProvider>
+    )
+    if (isAdmin) {
+      expect(screen.getByText(body)).toBeVisible()
+      expect(
+        screen.getByText('Request content exceeds 1 MiB and has been truncated')
+      ).toBeVisible()
+    } else {
+      expect(screen.queryByText(body)).not.toBeInTheDocument()
+    }
+  }
+)
 vi.hoisted(() => {
   vi.stubGlobal('localStorage', {
     getItem: () => null,

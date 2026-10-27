@@ -52,6 +52,7 @@ import {
 } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 
+import { CopyButton } from '@/components/copy-button'
 import { Dialog } from '@/components/dialog'
 import { StatusBadge, type StatusBadgeProps } from '@/components/status-badge'
 import { Button } from '@/components/ui/button'
@@ -841,6 +842,21 @@ export function DetailsDialog(props: DetailsDialogProps) {
         )}
 
         {/* Quota saturation marker (admin only) */}
+        {props.isAdmin && adminInfo?.request_body !== undefined && (
+          <DetailSection label={t('Request Content')}>
+            <div className='flex justify-end'>
+              <CopyButton value={adminInfo.request_body} />
+            </div>
+            <pre className='bg-muted max-h-96 overflow-auto rounded-md p-3 font-mono text-xs break-all whitespace-pre-wrap'>
+              {adminInfo.request_body}
+            </pre>
+            {adminInfo.request_body_truncated && (
+              <p className='text-muted-foreground text-xs'>
+                {t('Request content exceeds 1 MiB and has been truncated')}
+              </p>
+            )}
+          </DetailSection>
+        )}
         {props.isAdmin && adminInfo?.request_policy?.length ? (
           <DetailSection
             label={t('Request policy decisions')}

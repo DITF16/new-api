@@ -1,11 +1,65 @@
 package model
 
 import (
+	"io"
+	"net/http/httptest"
+	"strings"
 	"testing"
+
+	"github.com/QuantumNous/new-api/common"
+	"github.com/QuantumNous/new-api/constant"
+	"github.com/QuantumNous/new-api/relaykit/dto"
+	"github.com/gin-gonic/gin"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
+
+func TestRequestBodyLogOptInAndVisibility(t *testing.T) {
+	for _, enabled := range []bool{false, true} {
+		t.Run(map[bool]string{false: "disabled", true: "enabled"}[enabled], func(t *testing.T) {
+			c, _ := gin.CreateTestContext(httptest.NewRecorder())
+			payload := `{"messages":[{"role":"user","content":"排错 <script>"}],"stream":true}`
+			c.Request = httptest.NewRequest("POST", "/v1/chat/completions", strings.NewReader(payload))
+			storage, err := common.GetBodyStorage(c)
+			require.NoError(t, err)
+			t.Cleanup(func() { common.CleanupBodyStorage(c) })
+			_, err = storage.Seek(5, io.SeekStart)
+			require.NoError(t, err)
+			common.SetContextKey(c, constant.ContextKeyChannelSetting, dto.ChannelSettings{RecordRequestBody: enabled})
+			other := NewLogOther().withRequestBody(c)
+			position, err := storage.Seek(0, io.SeekCurrent)
+			require.NoError(t, err)
+			assert.EqualValues(t, 5, position)
+			if !enabled {
+				assert.NotContains(t, other.JSONString(), "request_body")
+				return
+			}
+			var decoded map[string]any
+			require.NoError(t, common.UnmarshalJsonStr(formatLogOtherJSON(other.JSONString(), logOtherVisibilityAdmin), &decoded))
+			admin := decoded["admin_info"].(map[string]any)
+			assert.Equal(t, payload, admin["request_body"])
+			assert.Equal(t, false, admin["request_body_truncated"])
+			assert.NotContains(t, formatLogOtherJSON(other.JSONString(), logOtherVisibilityUser), "request_body")
+		})
+	}
+}
+
+func TestRequestBodyLogTruncatesLargePayloadAndHandlesMissingBody(t *testing.T) {
+	c, _ := gin.CreateTestContext(httptest.NewRecorder())
+	common.SetContextKey(c, constant.ContextKeyChannelSetting, dto.ChannelSettings{RecordRequestBody: true})
+	var empty *LogOther
+	assert.NotContains(t, empty.withRequestBody(c).JSONString(), "request_body")
+	payload := strings.Repeat("x", (1<<20)-1) + "中文"
+	storage, err := common.CreateBodyStorage([]byte(payload))
+	require.NoError(t, err)
+	c.Set(common.KeyBodyStorage, storage)
+	t.Cleanup(func() { common.CleanupBodyStorage(c) })
+	other := empty.withRequestBody(c)
+	admin := other.Snapshot()["admin_info"].(map[string]any)
+	assert.Equal(t, strings.Repeat("x", (1<<20)-1), admin["request_body"])
+	assert.Equal(t, true, admin["request_body_truncated"])
+}
 
 func TestLogOtherScopesAndMerges(t *testing.T) {
 	var other LogOther

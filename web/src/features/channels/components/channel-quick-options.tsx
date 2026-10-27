@@ -69,21 +69,29 @@ export function ChannelQuickOptions(props: ChannelQuickOptionsProps) {
   const id = useId()
   const formContext = useFormContext<ChannelFormValues>()
   const form = props.form ?? formContext
-  const [passthrough, headerOverride, autoBan, modelCheck, websocket] =
-    useWatch({
-      control: form.control,
-      name: [
-        'pass_through_body_enabled',
-        'header_override',
-        'auto_ban',
-        'upstream_model_update_check_enabled',
-        'responses_websocket_enabled',
-      ],
-    })
+  const [
+    passthrough,
+    headerOverride,
+    autoBan,
+    modelCheck,
+    websocket,
+    recordBody,
+  ] = useWatch({
+    control: form.control,
+    name: [
+      'pass_through_body_enabled',
+      'header_override',
+      'auto_ban',
+      'upstream_model_update_check_enabled',
+      'responses_websocket_enabled',
+      'record_request_body',
+    ],
+  })
   const sensitiveDisabled = props.sensitiveLocked || props.disabled
   const setOption = (
     name:
       | 'pass_through_body_enabled'
+      | 'record_request_body'
       | 'upstream_model_update_check_enabled'
       | 'responses_websocket_enabled',
     value: boolean
@@ -116,6 +124,16 @@ export function ChannelQuickOptions(props: ChannelQuickOptionsProps) {
           if (confirmed) setOption('pass_through_body_enabled', true)
         })
       },
+      disabled: sensitiveDisabled,
+    })
+    options.push({
+      key: 'record-request-body',
+      label: t('Record Request Content'),
+      description: t(
+        'Save the client request body in admin log details (up to 1 MiB per request)'
+      ),
+      checked: recordBody === true,
+      onCheckedChange: (value) => setOption('record_request_body', value),
       disabled: sensitiveDisabled,
     })
     options.push({

@@ -303,6 +303,7 @@ const SENSITIVE_FORM_FIELDS = [
   'http2_connection_shards',
   'tls_insecure_skip_verify',
   'pass_through_body_enabled',
+  'record_request_body',
   'responses_websocket_enabled',
   'system_prompt',
   'system_prompt_override',
@@ -4759,6 +4760,29 @@ export function ChannelMutateDrawer({
                 {ollamaOpenAIChatFields}
                 {thinkingFields}
                 {passthroughFields}
+                <FormField
+                  control={form.control}
+                  name='record_request_body'
+                  render={({ field }) => (
+                    <FormItem className='flex items-center justify-between gap-4 px-4 py-3'>
+                      <div className='space-y-0.5'>
+                        <FormLabel>{t('Record Request Content')}</FormLabel>
+                        <FormDescription>
+                          {t(
+                            'Save the client request body in admin log details (up to 1 MiB per request)'
+                          )}
+                        </FormDescription>
+                      </div>
+                      <FormControl>
+                        <Switch
+                          checked={field.value === true}
+                          onCheckedChange={field.onChange}
+                          disabled={sensitiveLocked}
+                        />
+                      </FormControl>
+                    </FormItem>
+                  )}
+                />
                 {systemPromptFields}
                 {systemPromptOverrideFields}
               </fieldset>
