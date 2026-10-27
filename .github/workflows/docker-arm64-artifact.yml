@@ -41,6 +41,10 @@ jobs:
           else
             TAG="arm64-${GITHUB_SHA::12}"
           fi
+          if [[ ! "$TAG" =~ ^[a-zA-Z0-9_][a-zA-Z0-9_.-]{0,127}$ ]]; then
+            echo '::error::Invalid Docker image tag'
+            exit 1
+          fi
           echo "tag=$TAG" >> "$GITHUB_OUTPUT"
 
       - name: Build and export Linux ARM64 image
@@ -50,7 +54,8 @@ jobs:
           file: Dockerfile
           platforms: linux/arm64
           tags: new-api:${{ steps.tag.outputs.tag }}
-          outputs: type=oci,dest=/tmp/new-api-linux-arm64.tar
+          outputs: type=docker,dest=/tmp/new-api-linux-arm64.tar
+          provenance: false
           cache-from: type=gha
           cache-to: type=gha,mode=max
 
